@@ -1,0 +1,6 @@
+# Runtime dependencies: none -- the app uses only the Python stdlib
+# (socket, json, sqlite3, tkinter).
+#
+# Dev / build tooling:
+pytest
+pyinstaller

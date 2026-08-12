@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Per-peer runtime data (each user's local history/downloads, not source)
+*_chat_history.db
+*_downloads/
+
+# PyInstaller build output
+build/
+dist/
+*.spec
