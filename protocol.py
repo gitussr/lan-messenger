@@ -21,6 +21,10 @@ STATUS_OFFLINE = "offline"
 
 BROADCAST_CHAT_ID = "broadcast"
 
+# Sentinel "peer name" the GUI uses to mean "send to every currently
+# discovered peer" rather than a single connected peer.
+BROADCAST_PEER_ID = "__broadcast_all__"
+
 
 @dataclass
 class ChatMessage:

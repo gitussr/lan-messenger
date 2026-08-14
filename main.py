@@ -9,7 +9,7 @@ from discovery import Discovery, PeerInfo
 from file_transfer import FileReceiver, send_file
 from gui import ChatWindow
 from network import NetworkManager
-from protocol import BROADCAST_CHAT_ID, MSG_CHAT, MSG_FILE, MSG_PRESENCE
+from protocol import BROADCAST_CHAT_ID, BROADCAST_PEER_ID, MSG_CHAT, MSG_FILE, MSG_PRESENCE
 from storage import Storage
 
 
@@ -75,9 +75,33 @@ def main() -> None:
     discovery.on_peer_update = on_peer_update
 
     def on_send_chat(peer_name: str, text: str) -> None:
+        timestamp = time.time()
+
+        if peer_name == BROADCAST_PEER_ID:
+            targets = list(discovery.peers.keys())
+            if not targets:
+                gui.display_system("No peers online to broadcast to.")
+                return
+            delivered = 0
+            for target in targets:
+                if ensure_connected(target):
+                    network.send_message(
+                        target,
+                        {
+                            "type": MSG_CHAT,
+                            "sender": username,
+                            "text": text,
+                            "chat_id": BROADCAST_CHAT_ID,
+                            "timestamp": timestamp,
+                        },
+                    )
+                    delivered += 1
+            storage.save_message(BROADCAST_CHAT_ID, username, text, timestamp)
+            gui.display_system(f"Broadcast delivered to {delivered}/{len(targets)} peer(s).")
+            return
+
         if not ensure_connected(peer_name):
             return
-        timestamp = time.time()
         network.send_message(
             peer_name,
             {
@@ -97,6 +121,8 @@ def main() -> None:
 
     gui.on_send_chat = on_send_chat
     gui.on_send_file = on_send_file
+
+    gui.load_history(storage.get_history(BROADCAST_CHAT_ID))
 
     discovery.start()
 

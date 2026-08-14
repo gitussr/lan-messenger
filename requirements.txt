@@ -1,6 +1,6 @@
-# Runtime dependencies: none -- the app uses only the Python stdlib
-# (socket, json, sqlite3, tkinter).
-#
+# Runtime dependencies:
+customtkinter
+
 # Dev / build tooling:
 pytest
 pyinstaller
