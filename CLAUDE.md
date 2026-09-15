@@ -29,20 +29,27 @@ python -m py_compile *.py          # quick syntax check without running anything
 Packaging as a Windows `.exe` (PyInstaller):
 ```
 pip install pyinstaller
-pyinstaller --onefile --windowed --collect-data customtkinter --collect-data pytablericons main.py
+pyinstaller --onedir --windowed --collect-data customtkinter --add-data "assets;assets" --exclude-module numpy --exclude-module PIL._avif --exclude-module PIL.AvifImagePlugin main.py
 ```
-`--collect-data` bundles package data files that are read from disk at runtime: CustomTkinter's
-theme files and pytablericons' SVG icons (it loads each icon from its package directory).
+Use `--onedir`, not `--onefile`: a one-file exe unpacks its whole bundle to a temp dir on every
+launch (measured 7–10s to first window, vs ~1–2s for one-dir). `--collect-data customtkinter`
+bundles its theme files; `--add-data` bundles `assets/icons/`. The `--exclude-module` flags
+drop Pillow extras the app never uses (numpy support ~26 MB, AVIF ~7.5 MB).
+Don't import `pytablericons` from app code — it drags in pygame + numpy and ~5,000 SVG files,
+which made the exe take ~20s to start. It's a dev-only dependency for `tools/render_icons.py`,
+which pre-renders the icons the GUI uses to white-on-transparent PNGs; `gui._icon_image()`
+tints them at runtime.
 `--windowed` is required, not optional: the app is GUI-only end to end (the username prompt
 is `gui.ask_username()`, a CustomTkinter dialog, not a console `input()` call), so a
 console-attached build leaves a console window around for no reason, and closing that console
 kills the whole process (Tk mainloop included) since it's the process's own window, not a
-child. Output lands in `dist/main.exe`. Use `--add-data` for bundled resources (icons, etc.)
+child. Output lands in `dist/main/` (`main.exe` plus `_internal/`); ship the whole folder
+zipped, since `main.exe` won't run without `_internal/` beside it. Use `--add-data` for bundled resources (icons, etc.)
 and `--hidden-import` if PyInstaller misses a dependency.
 
 `requirements.txt` lists the runtime dependencies — `customtkinter` (the GUI's theming layer
-over Tkinter) and `pytablericons` (GUI icons; pulls in Pillow and pygame) — plus dev/build
-tooling (`pytest`, `pyinstaller`).
+over Tkinter) and `Pillow` (icon images) — plus dev/build tooling (`pytest`, `pyinstaller`,
+`pytablericons`).
 
 To manually test two peers on one machine, run `python main.py alice` and `python main.py bob`
 in separate terminals; they'll discover each other over the loopback-reachable broadcast
@@ -58,9 +65,9 @@ chosen TCP chat port.
 - **Message format**: JSON (stdlib `json`), newline-delimited for TCP framing — see
   "Deviations from the design doc".
 - **GUI**: CustomTkinter (Fluent/Windows-11-styled theming layer over stdlib Tkinter), with
-  icons from `pytablericons` rendered to images. Don't use emoji as UI icons: Tk 8.6 on
-  Windows can't draw color emoji and renders them as near-invisible monochrome slivers.
-  Both packages are listed in `requirements.txt`.
+  Tabler icons pre-rendered to `assets/icons/*.png` by `tools/render_icons.py` and loaded
+  with Pillow. Don't use emoji as UI icons: Tk 8.6 on Windows can't draw color emoji and
+  renders them as near-invisible monochrome slivers. Dependencies are in `requirements.txt`.
 - **Storage**: SQLite via stdlib `sqlite3`, one DB file per peer (`%LOCALAPPDATA%\LAN Messenger\<username>_chat_history.db`).
   No server-side or shared database — every peer stores its own history.
 - **Testing**: `pytest`, via `tests/`.

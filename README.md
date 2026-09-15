@@ -10,8 +10,8 @@ design rationale, and `CLAUDE.md` for architecture notes if you're developing on
 ## Requirements
 
 - Python 3.10+ (developed/tested on 3.13)
-- `customtkinter` (the Windows-11-styled GUI) and `pytablericons` (GUI icons; pulls in Pillow
-  and pygame) — both installed via `requirements.txt`; everything else is standard library
+- `customtkinter` (the Windows-11-styled GUI) and `Pillow` (GUI icon images) — both installed
+  via `requirements.txt`; everything else is standard library
   (`socket`, `json`, `sqlite3`, `tkinter`)
 - Windows (Tkinter ships with the standard Windows Python installer; on other OSes it may
   need to be installed separately)
@@ -24,7 +24,7 @@ Clone the repo and install the runtime dependencies plus the dev/build tooling (
 ```
 git clone https://github.com/gitussr/lan-messenger.git
 cd lan-messenger
-pip install -r requirements.txt   # customtkinter + pytablericons, plus pytest/pyinstaller for dev
+pip install -r requirements.txt   # customtkinter + Pillow, plus pytest/pyinstaller/pytablericons for dev
 ```
 
 ## Running
@@ -79,14 +79,24 @@ python -m pytest tests/test_storage.py -k round_trip
 
 ```
 pip install pyinstaller
-pyinstaller --onefile --windowed --collect-data customtkinter --collect-data pytablericons main.py
+pyinstaller --onedir --windowed --collect-data customtkinter --add-data "assets;assets" --exclude-module numpy --exclude-module PIL._avif --exclude-module PIL.AvifImagePlugin main.py
 ```
 
-`--collect-data` bundles files those packages read from disk at runtime (CustomTkinter's
-themes, pytablericons' SVG icons).
+The build is a folder, `dist/main/`, containing `main.exe` and an `_internal/` folder of
+support files. It runs on a machine without Python installed. To install it on another PC,
+zip the whole `dist/main` folder (right-click → Send to → Compressed (zipped) folder), copy
+the zip over, extract it, and run `main.exe`. Keep `_internal/` next to `main.exe`; the exe
+won't start without it. A desktop shortcut to `main.exe` works fine.
+
+Why a folder and not a single file: `--onefile` unpacks the whole bundle to a temp folder on
+every launch, which took 7–10 seconds to open the window, compared with about 1–2 seconds
+for the folder build.
+
+`--collect-data customtkinter` bundles CustomTkinter's theme files, and `--add-data` bundles
+the GUI icons in `assets/icons/`. The `--exclude-module` flags leave out Pillow extras the
+app doesn't use (numpy support and AVIF images), which keeps the build small. The icons are
+pre-rendered PNGs: to add or change one, edit `tools/render_icons.py` and run
+`python tools/render_icons.py`.
 
 `--windowed` matters: without it, `main.exe` keeps a console window attached, and closing
 that console kills the whole app (including the chat window) since they're the same process.
-
-The executable is produced at `dist/main.exe` and can run on a machine without Python
-installed.

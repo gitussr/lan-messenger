@@ -35,12 +35,13 @@ in requirements.txt.
 
 from __future__ import annotations
 
+import os
 import time
 from functools import lru_cache
 from typing import Callable, Optional
 
 import customtkinter as ctk
-from pytablericons import OutlineIcon, TablerIcons
+from PIL import Image
 from tkinter import filedialog, messagebox
 
 from protocol import BROADCAST_PEER_ID
@@ -105,10 +106,14 @@ EMOJI_SET = [
 
 # Tk 8.6 on Windows can't draw color emoji: in a text font it falls back to a
 # thin monochrome outline at ~12px, which is effectively invisible on buttons
-# and avatars. UI icons are therefore Tabler icons rendered to images (see
-# _icon_image), and emoji that must stay emoji -- the picker inserts them into
-# the message -- use Segoe UI Emoji at a readable size.
+# and avatars. UI icons are therefore Tabler icons pre-rendered to PNGs (see
+# _icon_image and tools/render_icons.py), and emoji that must stay emoji -- the
+# picker inserts them into the message -- use Segoe UI Emoji at a readable size.
 EMOJI_FONT = "Segoe UI Emoji"
+
+# PyInstaller sets __file__ under its bundle dir (dist/main/_internal), so this
+# resolves in the .exe too as long as the build passes --add-data "assets;assets".
+ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons")
 
 
 def _avatar_color(name: str) -> str:
@@ -126,12 +131,29 @@ def _initials(name: str) -> str:
 
 
 @lru_cache(maxsize=None)
-def _icon_image(icon: OutlineIcon, size: int, light: str, dark: str) -> ctk.CTkImage:
-    """A Tabler outline icon as a CTkImage, colored `light`/`dark` per appearance
-    mode. Rendered at 2x and scaled down by CTkImage so it stays crisp on HiDPI."""
+def _icon_mask(name: str, px: int) -> Image.Image:
+    """Alpha channel of assets/icons/<name>.png at px x px."""
+    with Image.open(os.path.join(ICON_DIR, f"{name}.png")) as img:
+        mask = img.getchannel("A")
+    if mask.size != (px, px):
+        mask = mask.resize((px, px), Image.LANCZOS)
+    return mask
+
+
+def _tinted_icon(name: str, px: int, color: str) -> Image.Image:
+    img = Image.new("RGBA", (px, px), color)
+    img.putalpha(_icon_mask(name, px))
+    return img
+
+
+@lru_cache(maxsize=None)
+def _icon_image(name: str, size: int, light: str, dark: str) -> ctk.CTkImage:
+    """A pre-rendered Tabler outline icon as a CTkImage, colored `light`/`dark`
+    per appearance mode. Loaded at 2x and scaled down by CTkImage so it stays
+    crisp on HiDPI."""
     return ctk.CTkImage(
-        light_image=TablerIcons.load(icon, size=size * 2, color=light),
-        dark_image=TablerIcons.load(icon, size=size * 2, color=dark),
+        light_image=_tinted_icon(name, size * 2, light),
+        dark_image=_tinted_icon(name, size * 2, dark),
         size=(size, size),
     )
 
@@ -287,7 +309,7 @@ class ChatWindow:
             broadcast_holder, BROADCAST_PEER_ID,
             selected=False, on_click=self._select_peer,
             display_name="Broadcast to All", subtitle="Message everyone at once",
-            avatar_image=_icon_image(OutlineIcon.SPEAKERPHONE, 18, "white", "white"),
+            avatar_image=_icon_image("speakerphone", 18, "white", "white"),
             avatar_color=BROADCAST_COLOR,
         )
         self._broadcast_row.frame.grid(row=0, column=0, sticky="ew")
@@ -379,7 +401,7 @@ class ChatWindow:
         input_bar.grid_columnconfigure(1, weight=1)
 
         ctk.CTkButton(
-            input_bar, text="", image=_icon_image(OutlineIcon.PAPERCLIP, 18, RECV_TEXT_L, RECV_TEXT_D),
+            input_bar, text="", image=_icon_image("paperclip", 18, RECV_TEXT_L, RECV_TEXT_D),
             width=38, height=38, corner_radius=RADIUS,
             fg_color="transparent", hover_color=(ROW_HOVER_L, ROW_HOVER_D),
             border_width=BORDER_W, border_color=(BORDER_L, BORDER_D),
@@ -396,7 +418,7 @@ class ChatWindow:
         self.entry.bind("<Return>", lambda _e: self._send_clicked())
 
         ctk.CTkButton(
-            input_bar, text="", image=_icon_image(OutlineIcon.MOOD_SMILE, 18, RECV_TEXT_L, RECV_TEXT_D),
+            input_bar, text="", image=_icon_image("mood_smile", 18, RECV_TEXT_L, RECV_TEXT_D),
             width=38, height=38, corner_radius=RADIUS,
             fg_color="transparent", hover_color=(ROW_HOVER_L, ROW_HOVER_D),
             border_width=BORDER_W, border_color=(BORDER_L, BORDER_D),
@@ -481,7 +503,7 @@ class ChatWindow:
             self._current_avatar = self._avatar(
                 self.peer_avatar_holder, name, size=36,
                 color=BROADCAST_COLOR,
-                image=_icon_image(OutlineIcon.SPEAKERPHONE, 18, "white", "white"),
+                image=_icon_image("speakerphone", 18, "white", "white"),
             )
             self._current_avatar.pack()
             self.peer_name_label.configure(text="Broadcast to All")

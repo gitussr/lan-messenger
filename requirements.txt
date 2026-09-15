@@ -1,7 +1,8 @@
 # Runtime dependencies:
 customtkinter
-pytablericons
+Pillow
 
 # Dev / build tooling:
 pytest
 pyinstaller
+pytablericons  # only for tools/render_icons.py; the app loads assets/icons/*.png
