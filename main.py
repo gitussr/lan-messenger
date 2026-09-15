@@ -7,7 +7,7 @@ from typing import Optional
 
 from discovery import Discovery, PeerInfo
 from file_transfer import FileReceiver, send_file
-from gui import ChatWindow
+from gui import ChatWindow, ask_username
 from network import NetworkManager
 from protocol import BROADCAST_CHAT_ID, BROADCAST_PEER_ID, MSG_CHAT, MSG_FILE, MSG_PRESENCE
 from storage import Storage
@@ -16,8 +16,7 @@ from storage import Storage
 def prompt_username() -> str:
     if len(sys.argv) > 1:
         return sys.argv[1]
-    name = input("Choose a username: ").strip()
-    return name or "anonymous"
+    return ask_username(default="anonymous")
 
 
 def main() -> None:

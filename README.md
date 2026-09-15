@@ -10,21 +10,21 @@ design rationale, and `CLAUDE.md` for architecture notes if you're developing on
 ## Requirements
 
 - Python 3.10+ (developed/tested on 3.13)
-- No third-party runtime dependencies — only the standard library (`socket`, `json`,
-  `sqlite3`, `tkinter`)
+- `customtkinter` (the Windows-11-styled GUI) and `pytablericons` (GUI icons; pulls in Pillow
+  and pygame) — both installed via `requirements.txt`; everything else is standard library
+  (`socket`, `json`, `sqlite3`, `tkinter`)
 - Windows (Tkinter ships with the standard Windows Python installer; on other OSes it may
   need to be installed separately)
 
 ## Setup
 
-Clone the repo and, optionally, create a virtual environment for the dev/build tooling
-(`pytest`, `pyinstaller`) listed in `requirements.txt` — the app itself needs nothing
-installed to run:
+Clone the repo and install the runtime dependencies plus the dev/build tooling (`pytest`,
+`pyinstaller`) from `requirements.txt`, optionally inside a virtual environment:
 
 ```
 git clone https://github.com/gitussr/lan-messenger.git
 cd lan-messenger
-pip install -r requirements.txt   # only needed for running tests / building the .exe
+pip install -r requirements.txt   # customtkinter + pytablericons, plus pytest/pyinstaller for dev
 ```
 
 ## Running
@@ -33,8 +33,9 @@ pip install -r requirements.txt   # only needed for running tests / building the
 python main.py [username]
 ```
 
-If you omit the username, you'll be prompted for one. Each running instance opens its own
-window and is simultaneously a client and a server — there's nothing else to start.
+If you omit the username, a small dialog window prompts for one — no console interaction is
+needed anywhere in the app. Each running instance opens its own window and is simultaneously
+a client and a server — there's nothing else to start.
 
 To try it on one machine with two peers, open two terminals:
 
@@ -45,7 +46,8 @@ python main.py bob
 
 Give it a few seconds for discovery (peers re-announce every 5s); each window's contact
 list should then show the other. Select a contact, type a message, and press Enter or
-Send. Use the "File..." button to send a file — it lands in `<username>_downloads/`.
+Send. Use the 📎 button to send a file — it lands in `<username>_downloads/`. Select the
+pinned "Broadcast to All" entry to send one message to every discovered peer at once.
 
 Chat history is stored locally per user in `<username>_chat_history.db` (SQLite) and is
 never shared with other peers.
@@ -74,8 +76,14 @@ python -m pytest tests/test_storage.py -k round_trip
 
 ```
 pip install pyinstaller
-pyinstaller --onefile main.py
+pyinstaller --onefile --windowed --collect-data customtkinter --collect-data pytablericons main.py
 ```
+
+`--collect-data` bundles files those packages read from disk at runtime (CustomTkinter's
+themes, pytablericons' SVG icons).
+
+`--windowed` matters: without it, `main.exe` keeps a console window attached, and closing
+that console kills the whole app (including the chat window) since they're the same process.
 
 The executable is produced at `dist/main.exe` and can run on a machine without Python
 installed.

@@ -36,9 +36,11 @@ in requirements.txt.
 from __future__ import annotations
 
 import time
+from functools import lru_cache
 from typing import Callable, Optional
 
 import customtkinter as ctk
+from pytablericons import OutlineIcon, TablerIcons
 from tkinter import filedialog, messagebox
 
 from protocol import BROADCAST_PEER_ID
@@ -101,6 +103,13 @@ EMOJI_SET = [
     "👎", "🙏", "👏", "🎉", "🔥", "❤️", "✅", "❌", "🤔", "😴",
 ]
 
+# Tk 8.6 on Windows can't draw color emoji: in a text font it falls back to a
+# thin monochrome outline at ~12px, which is effectively invisible on buttons
+# and avatars. UI icons are therefore Tabler icons rendered to images (see
+# _icon_image), and emoji that must stay emoji -- the picker inserts them into
+# the message -- use Segoe UI Emoji at a readable size.
+EMOJI_FONT = "Segoe UI Emoji"
+
 
 def _avatar_color(name: str) -> str:
     return AVATAR_PALETTE[hash(name) % len(AVATAR_PALETTE)]
@@ -114,6 +123,71 @@ def _initials(name: str) -> str:
     if len(parts) >= 2:
         return (parts[0][0] + parts[1][0]).upper()
     return name[:2].upper()
+
+
+@lru_cache(maxsize=None)
+def _icon_image(icon: OutlineIcon, size: int, light: str, dark: str) -> ctk.CTkImage:
+    """A Tabler outline icon as a CTkImage, colored `light`/`dark` per appearance
+    mode. Rendered at 2x and scaled down by CTkImage so it stays crisp on HiDPI."""
+    return ctk.CTkImage(
+        light_image=TablerIcons.load(icon, size=size * 2, color=light),
+        dark_image=TablerIcons.load(icon, size=size * 2, color=dark),
+        size=(size, size),
+    )
+
+
+def ask_username(default: str = "anonymous") -> str:
+    """Modal GUI prompt for a username, used when none was passed on the
+    command line. Runs its own short-lived Tk root/mainloop before the main
+    ChatWindow exists -- there's no console to fall back to once the app is
+    packaged with PyInstaller's --windowed flag (no console = no input())."""
+    result = {"value": default}
+
+    dialog = ctk.CTk()
+    dialog.title("LAN Messenger")
+    dialog.resizable(False, False)
+    dialog.configure(fg_color=(APP_BG_L, APP_BG_D))
+
+    width, height = 360, 200
+    dialog.update_idletasks()
+    x = (dialog.winfo_screenwidth() - width) // 2
+    y = (dialog.winfo_screenheight() - height) // 2
+    dialog.geometry(f"{width}x{height}+{x}+{y}")
+
+    def submit() -> None:
+        result["value"] = entry.get().strip() or default
+        dialog.quit()
+
+    dialog.protocol("WM_DELETE_WINDOW", submit)
+
+    ctk.CTkLabel(
+        dialog, text="LAN Messenger", font=ctk.CTkFont(family=FONT, size=16, weight="bold"),
+    ).pack(pady=(28, 4))
+    ctk.CTkLabel(
+        dialog, text="Choose a display name for this session",
+        font=ctk.CTkFont(family=FONT, size=11), text_color=(SYSTEM_L, SYSTEM_D),
+    ).pack(pady=(0, 16))
+
+    entry = ctk.CTkEntry(
+        dialog, placeholder_text="Username", width=240, corner_radius=RADIUS,
+        border_width=BORDER_W, border_color=(BORDER_L, BORDER_D),
+        font=ctk.CTkFont(family=FONT, size=12),
+    )
+    entry.pack()
+    entry.bind("<Return>", lambda _e: submit())
+    entry.focus_set()
+
+    ctk.CTkButton(
+        dialog, text="Continue", width=120, corner_radius=RADIUS,
+        fg_color=ACCENT, hover_color=ACCENT_HOVER,
+        border_width=BORDER_W, border_color=ACCENT_BORDER,
+        font=ctk.CTkFont(family=FONT, size=12, weight="bold"),
+        command=submit,
+    ).pack(pady=20)
+
+    dialog.mainloop()
+    dialog.destroy()
+    return result["value"].strip() or default
 
 
 class ChatWindow:
@@ -213,7 +287,8 @@ class ChatWindow:
             broadcast_holder, BROADCAST_PEER_ID,
             selected=False, on_click=self._select_peer,
             display_name="Broadcast to All", subtitle="Message everyone at once",
-            avatar_text="📢", avatar_color=BROADCAST_COLOR,
+            avatar_image=_icon_image(OutlineIcon.SPEAKERPHONE, 18, "white", "white"),
+            avatar_color=BROADCAST_COLOR,
         )
         self._broadcast_row.frame.grid(row=0, column=0, sticky="ew")
 
@@ -304,7 +379,8 @@ class ChatWindow:
         input_bar.grid_columnconfigure(1, weight=1)
 
         ctk.CTkButton(
-            input_bar, text="📎", width=38, height=38, corner_radius=RADIUS,
+            input_bar, text="", image=_icon_image(OutlineIcon.PAPERCLIP, 18, RECV_TEXT_L, RECV_TEXT_D),
+            width=38, height=38, corner_radius=RADIUS,
             fg_color="transparent", hover_color=(ROW_HOVER_L, ROW_HOVER_D),
             border_width=BORDER_W, border_color=(BORDER_L, BORDER_D),
             text_color=("black", "white"), command=self._file_clicked,
@@ -320,7 +396,8 @@ class ChatWindow:
         self.entry.bind("<Return>", lambda _e: self._send_clicked())
 
         ctk.CTkButton(
-            input_bar, text="🙂", width=38, height=38, corner_radius=RADIUS,
+            input_bar, text="", image=_icon_image(OutlineIcon.MOOD_SMILE, 18, RECV_TEXT_L, RECV_TEXT_D),
+            width=38, height=38, corner_radius=RADIUS,
             fg_color="transparent", hover_color=(ROW_HOVER_L, ROW_HOVER_D),
             border_width=BORDER_W, border_color=(BORDER_L, BORDER_D),
             text_color=("black", "white"), command=self._toggle_emoji_picker,
@@ -337,10 +414,10 @@ class ChatWindow:
     # ------------------------------------------------------------------
     # Small building blocks
     # ------------------------------------------------------------------
-    def _avatar(self, parent, name: str, size: int = 36, text: Optional[str] = None,
-                color: Optional[str] = None) -> ctk.CTkLabel:
+    def _avatar(self, parent, name: str, size: int = 36, color: Optional[str] = None,
+                image: Optional[ctk.CTkImage] = None) -> ctk.CTkLabel:
         return ctk.CTkLabel(
-            parent, text=text if text is not None else _initials(name),
+            parent, text="" if image else _initials(name), image=image,
             width=size, height=size,
             corner_radius=size // 2, fg_color=color or _avatar_color(name),
             text_color="white",
@@ -403,7 +480,8 @@ class ChatWindow:
         if name == BROADCAST_PEER_ID:
             self._current_avatar = self._avatar(
                 self.peer_avatar_holder, name, size=36,
-                text="📢", color=BROADCAST_COLOR,
+                color=BROADCAST_COLOR,
+                image=_icon_image(OutlineIcon.SPEAKERPHONE, 18, "white", "white"),
             )
             self._current_avatar.pack()
             self.peer_name_label.configure(text="Broadcast to All")
@@ -458,6 +536,10 @@ class ChatWindow:
             ctk.CTkButton(
                 frame, text=emoji, width=32, height=32, corner_radius=RADIUS,
                 fg_color="transparent", hover_color=(ROW_HOVER_L, ROW_HOVER_D),
+                # the theme's default button text color is near-white in both
+                # modes, which made these invisible on the light popup
+                text_color=(RECV_TEXT_L, RECV_TEXT_D),
+                font=ctk.CTkFont(family=EMOJI_FONT, size=20),
                 command=lambda e=emoji: self._insert_emoji(e),
             ).grid(row=i // 5, column=i % 5, padx=2, pady=2)
         self._emoji_popup = popup
@@ -563,7 +645,7 @@ class _ContactRow:
     def __init__(
         self, parent, key: str, selected: bool, on_click: Callable[[str], None],
         display_name: Optional[str] = None, subtitle: str = "● Online",
-        avatar_text: Optional[str] = None, avatar_color: Optional[str] = None,
+        avatar_image: Optional[ctk.CTkImage] = None, avatar_color: Optional[str] = None,
     ):
         self.key = key
         self._on_click = on_click
@@ -583,7 +665,7 @@ class _ContactRow:
         content.grid_columnconfigure(1, weight=1)
 
         avatar = ctk.CTkLabel(
-            content, text=avatar_text if avatar_text is not None else _initials(name),
+            content, text="" if avatar_image else _initials(name), image=avatar_image,
             width=34, height=34, corner_radius=17,
             fg_color=avatar_color or _avatar_color(key),
             text_color="white", font=ctk.CTkFont(family=FONT, size=12, weight="bold"),
@@ -601,7 +683,7 @@ class _ContactRow:
         self._status_label = ctk.CTkLabel(
             content, text=subtitle, anchor="w",
             font=ctk.CTkFont(family=FONT, size=10),
-            text_color=(SYSTEM_L, SYSTEM_D) if avatar_text else ONLINE_DOT,
+            text_color=(SYSTEM_L, SYSTEM_D) if avatar_image else ONLINE_DOT,
         )
         self._status_label.grid(row=1, column=1, sticky="ew")
 

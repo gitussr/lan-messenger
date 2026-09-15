@@ -20,7 +20,7 @@ implementation of that blueprint, with a couple of correctness fixes over the do
 There is no build step — this is a plain-stdlib Python app, run directly.
 
 ```
-python main.py [username]          # launch a peer; prompts for a username if omitted
+python main.py [username]          # launch a peer; shows a GUI dialog for a username if omitted
 python -m pytest                   # run the test suite (tests/)
 python -m pytest tests/test_storage.py -k round_trip   # run a single test
 python -m py_compile *.py          # quick syntax check without running anything
@@ -29,13 +29,20 @@ python -m py_compile *.py          # quick syntax check without running anything
 Packaging as a Windows `.exe` (PyInstaller):
 ```
 pip install pyinstaller
-pyinstaller --onefile main.py
+pyinstaller --onefile --windowed --collect-data customtkinter --collect-data pytablericons main.py
 ```
-Output lands in `dist/main.exe`. Use `--add-data` for bundled resources (icons, etc.) and
-`--hidden-import` if PyInstaller misses a dependency.
+`--collect-data` bundles package data files that are read from disk at runtime: CustomTkinter's
+theme files and pytablericons' SVG icons (it loads each icon from its package directory).
+`--windowed` is required, not optional: the app is GUI-only end to end (the username prompt
+is `gui.ask_username()`, a CustomTkinter dialog, not a console `input()` call), so a
+console-attached build leaves a console window around for no reason, and closing that console
+kills the whole process (Tk mainloop included) since it's the process's own window, not a
+child. Output lands in `dist/main.exe`. Use `--add-data` for bundled resources (icons, etc.)
+and `--hidden-import` if PyInstaller misses a dependency.
 
-`requirements.txt` only lists dev/build tooling (`pytest`, `pyinstaller`) — the app itself has
-zero third-party runtime dependencies (`socket`, `json`, `sqlite3`, `tkinter` are all stdlib).
+`requirements.txt` lists the runtime dependencies — `customtkinter` (the GUI's theming layer
+over Tkinter) and `pytablericons` (GUI icons; pulls in Pillow and pygame) — plus dev/build
+tooling (`pytest`, `pyinstaller`).
 
 To manually test two peers on one machine, run `python main.py alice` and `python main.py bob`
 in separate terminals; they'll discover each other over the loopback-reachable broadcast
@@ -50,7 +57,10 @@ chosen TCP chat port.
   raw UDP broadcast proves unreliable on a given network (some LANs block it).
 - **Message format**: JSON (stdlib `json`), newline-delimited for TCP framing — see
   "Deviations from the design doc".
-- **GUI**: Tkinter (stdlib, zero extra deps).
+- **GUI**: CustomTkinter (Fluent/Windows-11-styled theming layer over stdlib Tkinter), with
+  icons from `pytablericons` rendered to images. Don't use emoji as UI icons: Tk 8.6 on
+  Windows can't draw color emoji and renders them as near-invisible monochrome slivers.
+  Both packages are listed in `requirements.txt`.
 - **Storage**: SQLite via stdlib `sqlite3`, one DB file per peer (`<username>_chat_history.db`).
   No server-side or shared database — every peer stores its own history.
 - **Testing**: `pytest`, via `tests/`.
@@ -125,3 +135,7 @@ don't "fix" them back to the doc's version:
   `cryptography`/`PyCryptodome` for payload confidentiality, and scoping the Windows Firewall
   to only the discovery UDP port and the chosen chat TCP port. Filename sanitization for file
   transfer is already implemented (see `file_transfer._safe_filename`).
+- **Username entry is GUI-only**: `main.py.prompt_username()` falls back to `gui.ask_username()`
+  (a CustomTkinter dialog), never `input()`. This is what makes `--windowed` packaging possible
+  at all — a console `input()` call would have nothing to read from in a windowed build. Don't
+  reintroduce a console prompt here.

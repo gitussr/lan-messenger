@@ -1,5 +1,6 @@
 # Runtime dependencies:
 customtkinter
+pytablericons
 
 # Dev / build tooling:
 pytest
