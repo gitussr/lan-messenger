@@ -5,6 +5,7 @@ import sys
 import time
 from typing import Optional
 
+import paths
 from discovery import Discovery, PeerInfo
 from file_transfer import FileReceiver, send_file
 from gui import ChatWindow, ask_username
@@ -22,12 +23,12 @@ def prompt_username() -> str:
 def main() -> None:
     username = prompt_username()
 
-    storage = Storage(db_path=f"{username}_chat_history.db")
+    storage = Storage(db_path=paths.db_path(username))
     network = NetworkManager(username=username)
     chat_port = network.start_server()
 
     discovery = Discovery(username=username, chat_port=chat_port)
-    file_receiver = FileReceiver(download_dir=f"{username}_downloads")
+    file_receiver = FileReceiver(download_dir=paths.downloads_dir(username))
     gui = ChatWindow(username=username)
 
     def refresh_peer_list() -> None:

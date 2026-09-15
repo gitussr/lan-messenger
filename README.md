@@ -46,11 +46,14 @@ python main.py bob
 
 Give it a few seconds for discovery (peers re-announce every 5s); each window's contact
 list should then show the other. Select a contact, type a message, and press Enter or
-Send. Use the 📎 button to send a file — it lands in `<username>_downloads/`. Select the
-pinned "Broadcast to All" entry to send one message to every discovered peer at once.
+Send. Use the 📎 button to send a file — it lands in
+`%USERPROFILE%\Downloads\LAN Messenger\<username>\`. Select the pinned "Broadcast to All"
+entry to send one message to every discovered peer at once.
 
-Chat history is stored locally per user in `<username>_chat_history.db` (SQLite) and is
-never shared with other peers.
+Chat history is stored locally per user in
+`%LOCALAPPDATA%\LAN Messenger\<username>_chat_history.db` (SQLite) and is never shared with
+other peers. Characters that aren't valid in Windows filenames are replaced with `_` in
+these paths.
 
 ### Firewall
 

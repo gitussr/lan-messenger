@@ -61,7 +61,7 @@ chosen TCP chat port.
   icons from `pytablericons` rendered to images. Don't use emoji as UI icons: Tk 8.6 on
   Windows can't draw color emoji and renders them as near-invisible monochrome slivers.
   Both packages are listed in `requirements.txt`.
-- **Storage**: SQLite via stdlib `sqlite3`, one DB file per peer (`<username>_chat_history.db`).
+- **Storage**: SQLite via stdlib `sqlite3`, one DB file per peer (`%LOCALAPPDATA%\LAN Messenger\<username>_chat_history.db`).
   No server-side or shared database — every peer stores its own history.
 - **Testing**: `pytest`, via `tests/`.
 
@@ -96,10 +96,15 @@ import each other except `file_transfer.py`, which depends on `network.py`.
   `main.py`'s handlers all do this.
 - **`storage.py`** (`Storage`) — SQLite persistence (`messages`, `users` tables), one DB file
   per peer. `save_message()` on every send/receive; `get_history()` to load a chat.
+- **`paths.py`** — absolute per-user locations for the DB (`%LOCALAPPDATA%\LAN Messenger\`)
+  and downloads, plus `safe_name()` to make a username a valid Windows filename. Never use
+  CWD-relative paths: a packaged .exe is often launched from a read-only folder, which makes
+  sqlite3 fail with "unable to open database file".
 - **`file_transfer.py`** (`send_file`, `FileReceiver`) — chunked file transfer on top of
   `network.py.send_message`. Files are read in 50KB chunks, base64-encoded into `type:"file"`
   messages with an `index`, terminated by an `eof:true` marker; `FileReceiver` buffers chunks
-  by `(sender, filename)` and writes the reassembled file to `<username>_downloads/` once EOF
+  by `(sender, filename)` and writes the reassembled file to
+  `~/Downloads/LAN Messenger/<username>/` once EOF
   arrives. Filenames are passed through `_safe_filename()` (strips any path component) before
   touching disk, so a malicious peer can't path-traverse out of the download directory.
 
