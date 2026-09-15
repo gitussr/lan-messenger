@@ -111,7 +111,7 @@ EMOJI_SET = [
 # picker inserts them into the message -- use Segoe UI Emoji at a readable size.
 EMOJI_FONT = "Segoe UI Emoji"
 
-# PyInstaller sets __file__ under its bundle dir (dist/main/_internal), so this
+# PyInstaller sets __file__ under its bundle dir (dist/lca-lan/_internal), so this
 # resolves in the .exe too as long as the build passes --add-data "assets;assets".
 ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons")
 

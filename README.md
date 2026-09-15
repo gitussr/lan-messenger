@@ -79,14 +79,15 @@ python -m pytest tests/test_storage.py -k round_trip
 
 ```
 pip install pyinstaller
-pyinstaller --onedir --windowed --collect-data customtkinter --add-data "assets;assets" --exclude-module numpy --exclude-module PIL._avif --exclude-module PIL.AvifImagePlugin main.py
+pyinstaller --name lca-lan --onedir --windowed --collect-data customtkinter --add-data "assets;assets" --exclude-module numpy --exclude-module PIL._avif --exclude-module PIL.AvifImagePlugin main.py
 ```
 
-The build is a folder, `dist/main/`, containing `main.exe` and an `_internal/` folder of
-support files. It runs on a machine without Python installed. To install it on another PC,
-zip the whole `dist/main` folder (right-click → Send to → Compressed (zipped) folder), copy
-the zip over, extract it, and run `main.exe`. Keep `_internal/` next to `main.exe`; the exe
-won't start without it. A desktop shortcut to `main.exe` works fine.
+The build is a folder, `dist/lca-lan/`, containing `lca-lan.exe` and an `_internal/` folder
+of support files (`--name lca-lan` sets both names). It runs on a machine without Python
+installed. To install it on another PC, zip the whole `dist/lca-lan` folder (right-click →
+Send to → Compressed (zipped) folder), copy the zip over, extract it, and run `lca-lan.exe`.
+Keep `_internal/` next to `lca-lan.exe`; the exe won't start without it. A desktop shortcut
+to `lca-lan.exe` works fine.
 
 Why a folder and not a single file: `--onefile` unpacks the whole bundle to a temp folder on
 every launch, which took 7–10 seconds to open the window, compared with about 1–2 seconds
@@ -98,5 +99,5 @@ app doesn't use (numpy support and AVIF images), which keeps the build small. Th
 pre-rendered PNGs: to add or change one, edit `tools/render_icons.py` and run
 `python tools/render_icons.py`.
 
-`--windowed` matters: without it, `main.exe` keeps a console window attached, and closing
+`--windowed` matters: without it, `lca-lan.exe` keeps a console window attached, and closing
 that console kills the whole app (including the chat window) since they're the same process.

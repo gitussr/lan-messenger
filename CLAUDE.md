@@ -29,7 +29,7 @@ python -m py_compile *.py          # quick syntax check without running anything
 Packaging as a Windows `.exe` (PyInstaller):
 ```
 pip install pyinstaller
-pyinstaller --onedir --windowed --collect-data customtkinter --add-data "assets;assets" --exclude-module numpy --exclude-module PIL._avif --exclude-module PIL.AvifImagePlugin main.py
+pyinstaller --name lca-lan --onedir --windowed --collect-data customtkinter --add-data "assets;assets" --exclude-module numpy --exclude-module PIL._avif --exclude-module PIL.AvifImagePlugin main.py
 ```
 Use `--onedir`, not `--onefile`: a one-file exe unpacks its whole bundle to a temp dir on every
 launch (measured 7–10s to first window, vs ~1–2s for one-dir). `--collect-data customtkinter`
@@ -43,8 +43,9 @@ tints them at runtime.
 is `gui.ask_username()`, a CustomTkinter dialog, not a console `input()` call), so a
 console-attached build leaves a console window around for no reason, and closing that console
 kills the whole process (Tk mainloop included) since it's the process's own window, not a
-child. Output lands in `dist/main/` (`main.exe` plus `_internal/`); ship the whole folder
-zipped, since `main.exe` won't run without `_internal/` beside it. Use `--add-data` for bundled resources (icons, etc.)
+child. Output lands in `dist/lca-lan/` (`lca-lan.exe` plus `_internal/`; `--name lca-lan` sets
+both names); ship the whole folder zipped, since `lca-lan.exe` won't run without `_internal/`
+beside it. Use `--add-data` for bundled resources (icons, etc.)
 and `--hidden-import` if PyInstaller misses a dependency.
 
 `requirements.txt` lists the runtime dependencies — `customtkinter` (the GUI's theming layer
